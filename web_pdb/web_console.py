@@ -100,10 +100,15 @@ class WebConsole:
         self._console_history = ThreadSafeBuffer('')
         self._frame_data = ThreadSafeBuffer()
         self._stop_all = Event()
-        self._server_thread = Thread(target=self._run_server, args=(host, port))
+
+        app.frame_data = self._frame_data
+        httpd = make_server(host, port, app, ws_handler_class=WebConsoleSocket)
+
+        self._server_thread = Thread(target=self._run_server, args=(httpd,))
         self._server_thread.daemon = True
-        logging.critical(
-            'Web-PDB: starting web-server on http://%s:%s', gethostname(), port)
+
+        #logging.critical(
+        #    'Web-PDB: starting web-server on http://%s:%s', gethostname(), port)
         self._server_thread.start()
 
     @property
@@ -122,9 +127,7 @@ class WebConsole:
     def closed(self):
         return self._stop_all.is_set()
 
-    def _run_server(self, host, port):
-        app.frame_data = self._frame_data
-        httpd = make_server(host, port, app, ws_handler_class=WebConsoleSocket)
+    def _run_server(self, httpd):
         while not self._stop_all.is_set():
             try:
                 httpd.handle_request()
